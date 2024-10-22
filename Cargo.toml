@@ -1,0 +1,10 @@
+[package]
+name = "cal"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+chrono = "0.4.38"
+paw = "1.0"
+regex = "1.11.0"
+structopt = { version = "0.3", features = ["paw"] }
