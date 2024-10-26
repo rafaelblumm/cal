@@ -1,6 +1,7 @@
 use std::fmt;
 
-use chrono::{Datelike, Month, Months, NaiveDate, Weekday};
+use chrono::{Datelike, Local, Month, Months, NaiveDate, Weekday};
+use colored::{control::ShouldColorize, Colorize};
 
 #[derive(PartialEq, Debug)]
 /// Calendar display length
@@ -107,8 +108,12 @@ impl Calendar {
         if show_year {
             month_name.push_str(&format!(" {}", year));
         };
-
+        
         let mut weeks = Self::format_weeks(Self::get_month_weeks(year, month));
+        let now = Local::now();
+        if ShouldColorize::from_env().should_colorize() && month == Local::now().month() {
+            weeks = Self::colorize_day_in_month(now.day(), weeks);
+        }
         let mut lines = vec![
             format!("{:^20}", month_name),
             String::from("Su Mo Tu We Th Fr Sa"),  
@@ -116,6 +121,22 @@ impl Calendar {
         lines.append(&mut weeks);
 
         lines
+    }
+
+    fn colorize_day_in_month(day: u32, mut weeks: Vec<String>) -> Vec<String> {
+        let day = format!("{:>2}", day);
+        for i in 0..weeks.len() {
+            if !weeks[i].contains(&day) {
+                continue
+            }
+
+            let colored_day = &day.black().on_bright_white().to_string();
+            let colorized_week = weeks[i].replacen(&day, colored_day, 1);
+            weeks[i] = colorized_week;
+            break
+        }
+
+        weeks
     }
 
     fn format_weeks(weeks: Vec<Vec<u32>>) -> Vec<String> {
@@ -196,6 +217,8 @@ mod calendar_tests {
 
     #[test]
     fn test_display() {
+        colored::control::set_override(false);
+
         let expected = String::new() +
             "    October 2024    \n" +
             "Su Mo Tu We Th Fr Sa\n" +
@@ -294,6 +317,8 @@ mod calendar_tests {
 
     #[test]
     fn test_format_year() {
+        colored::control::set_override(false);
+
         let expected = vec![
             "                               2024                               ",
             "                                                                  ",
@@ -336,6 +361,8 @@ mod calendar_tests {
 
     #[test]
     fn test_format_trimester() {
+        colored::control::set_override(false);
+
         let expected = vec![
             "      January                February                March        ",
             "Su Mo Tu We Th Fr Sa   Su Mo Tu We Th Fr Sa   Su Mo Tu We Th Fr Sa",
@@ -373,6 +400,8 @@ mod calendar_tests {
 
     #[test]
     fn test_format_month() {
+        colored::control::set_override(false);
+
         let expected = vec![
             "    October 2024    ",
             "Su Mo Tu We Th Fr Sa",

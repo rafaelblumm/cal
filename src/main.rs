@@ -22,10 +22,17 @@ struct Args {
     /// Show whole year
     #[structopt(short = "y", long = "year")]
     show_year: bool,
+    /// Disable colored output
+    #[structopt(long)]
+    no_color: bool
 }
 
 #[paw::main]
 fn main(args: Args) {
+    if args.no_color {
+        colored::control::set_override(false);
+    }
+
     let cal = parse_date(&args.date);
     if cal.is_err() {
         eprintln!("{}", cal.unwrap_err());
