@@ -2,7 +2,7 @@ use std::process::exit;
 
 use calendar::{Calendar, CalendarLength};
 use structopt::StructOpt;
-use chrono::{Datelike, Local};
+use chrono::{Datelike, Local, NaiveDateTime};
 use regex::Regex;
 
 pub mod calendar;
@@ -51,10 +51,14 @@ fn parse_date(date: &Vec<String>) -> Result<Calendar, String> {
 
     if date.len() == 1 {
         if is_numeric(&date[0]) {
-            let year: i32 = date[0].parse().unwrap();
-            let calendar = Calendar::new(year, now.month())
-                .with_length(CalendarLength::YEAR);
-            return Ok(calendar)
+            return match parse_year(&date[0]) {
+                Ok(year) => {
+                    let cal = Calendar::new(year, now.month())
+                        .with_length(CalendarLength::YEAR);
+                    Ok(cal)
+                },
+                Err(msg) => Err(msg),
+            }
         }
         return match parse_month_name(&date[0]) {
             Ok(month) => Ok(Calendar::new(now.year(), month)),
@@ -74,9 +78,26 @@ fn parse_date(date: &Vec<String>) -> Result<Calendar, String> {
     if month.is_err() {
         return Err(month.unwrap_err())
     }
-    let year: i32 = date[1].parse().unwrap();
     
-    Ok(Calendar::new(year, month.unwrap()))
+    match parse_year(&date[1]) {
+        Ok(year) => Ok(Calendar::new(year, month.unwrap())),
+        Err(msg) => Err(msg),
+    }
+}
+
+fn parse_year(year: &str) -> Result<i32, String> {
+    let year = year.trim();
+    let max_year = NaiveDateTime::MAX.year();
+    if year.len() > max_year.to_string().len() {
+        return Err(format!("Exceeded max year: {}", year))
+    }
+    
+    let year: i32 = year.parse().unwrap();
+    if year > max_year {
+        return Err(format!("Exceeded max year: {}", year))
+    }
+
+    Ok(year)
 }
 
 fn parse_month_name(month: &str) -> Result<u32, String> {
@@ -238,6 +259,46 @@ mod parser_tests {
         let expected = Err(String::from("Invalid year: abcd"));
         let params = vec![String::from("13"), String::from("abcd")];
         let result = parse_date(&params);
+        assert_eq!(expected, result);
+
+        // Exceeded year
+        let expected = Err(String::from("Exceeded max year: 99999999"));
+        let params = vec![String::from("99999999")];
+        let result = parse_date(&params);
+        assert_eq!(expected, result);
+        
+        // Valid month (numeric) and exceeded year
+        let expected = Err(String::from("Exceeded max year: 99999999"));
+        let params = vec![String::from("12"), String::from("99999999")];
+        let result = parse_date(&params);
+        assert_eq!(expected, result);
+
+        // Valid month (short literal) and exceeded year
+        let expected = Err(String::from("Exceeded max year: 99999999"));
+        let params = vec![String::from("dec"), String::from("99999999")];
+        let result = parse_date(&params);
+        assert_eq!(expected, result);
+
+        // Valid month (long literal) and exceeded year
+        let expected = Err(String::from("Exceeded max year: 99999999"));
+        let params = vec![String::from("december"), String::from("99999999")];
+        let result = parse_date(&params);
+        assert_eq!(expected, result);        
+    }
+
+    #[test]
+    fn test_parse_year() {
+        assert_eq!(Ok(2024), parse_year("2024"));
+        assert_eq!(Ok(2024), parse_year("2024  "));
+        assert_eq!(Ok(2024), parse_year("  2024"));
+        assert_eq!(Ok(2024), parse_year("  2024  "));
+
+        let err_msg = "Exceeded max year: ";
+        assert_eq!(Err(format!("{}{}", err_msg, 999999)), parse_year("999999"));
+
+        let invalid_year = NaiveDateTime::MAX.year() + 1;
+        let expected = Err(format!("{}{}", err_msg, invalid_year));
+        let result = parse_year(&invalid_year.to_string());
         assert_eq!(expected, result);
     }
 
